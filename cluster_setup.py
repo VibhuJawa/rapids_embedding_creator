@@ -34,7 +34,7 @@ def setup_dask_cluster(rmm_pool_size="14GB", CUDA_VISIBLE_DEVICES="0,1,2,3"):
     """
     This function sets up a dask cluster across n GPUs.
     It also ensures maximum memory efficiency for the GPU by:
-        1. sets up the the pytorch memory pool to be the same as the RAPIDS memory pool.
+        1. Ensuring pytorch memory pool is the same as the RAPIDS memory pool.
         2. enables spilling for cudf.
 
     Args:
