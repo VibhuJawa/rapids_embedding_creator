@@ -13,13 +13,14 @@
 
 import cupy as cp
 import cudf
+from cudf.core.subword_tokenizer import SubwordTokenizer
 from cudf.core.column import as_column
 from sentence_transformers import SentenceTransformer
 from dask.distributed import get_worker, performance_report
 import dask_cudf
 import time
 from cluster_setup import setup_dask_cluster
-from rapids_tokenizer import create_embeddings as create_embeddings_rapids
+from rapids_embeddings_helpers import create_embeddings as create_embeddings_rapids
 import gc
 
 
@@ -60,7 +61,17 @@ def add_embedding(df, batch_size, use_rapids_tokenizer=False):
         worker.sbert_model = model.to("cuda")
 
     if use_rapids_tokenizer:
-        embedding = create_embeddings_rapids(df["String"], model, batch_size)
+        if hasattr(worker, 'rapids_tokenizer'):
+            cudf_tokenizer = worker.rapids_tokenizer
+        else:
+            # Vocabulary is included in the root directory of this repo
+            # however, below is the command to modify / update it -->
+            # from cudf.utils.hash_vocab_utils import hash_vocab
+            # hash_vocab('vocab.txt', 'voc_hash.txt')
+            cudf_tokenizer = SubwordTokenizer("/home/nfs/vjawa/rapids_embedding_creator/vocab/voc_hash.txt", do_lower_case=True)
+            worker.rapids_tokenizer = cudf_tokenizer
+
+        embedding = create_embeddings_rapids(df["String"], model, cudf_tokenizer, batch_size)
     else:
         embedding = model.encode(
             df["String"].to_arrow().to_pylist(),
@@ -87,6 +98,7 @@ def embedding_creation_workflow(
             batch_size: The batch size to be used for the embedding creation.
     """
     df = dask_cudf.read_parquet(input_file_name)
+    #TODO Make `repartition` configurable
     df = df.repartition(128)
     meta_df = df._meta.copy()
     meta_df["embeddings"] = [1] * len(meta_df)
