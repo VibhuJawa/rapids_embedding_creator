@@ -75,6 +75,13 @@ def add_embedding(df, batch_size):
 
 
 def embedding_creation_workflow(input_file_name, output_file_name, batch_size):
+    """
+    This function runs the entire embedding creation workflow end2end on multiple GPUs
+        Args:
+            input_file_name: The name of the input file.
+            output_file_name: The name of the output file.
+            batch_size: The batch size to be used for the embedding creation.
+    """
     df = dask_cudf.read_parquet(input_file_name)
     df = df.repartition(128)
     meta_df = df._meta.copy()
