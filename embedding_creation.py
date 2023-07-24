@@ -1,14 +1,3 @@
-import cupy as cp
-import cudf
-from cudf.core.column import as_column
-from sentence_transformers import SentenceTransformer
-from dask.distributed import get_worker, performance_report
-import dask_cudf
-import time
-from cluster_setup import setup_dask_cluster
-import gc
-
-
 # Copyright (c) 2022-2023, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +11,15 @@ import gc
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cupy as cp
+import cudf
+from cudf.core.column import as_column
+from sentence_transformers import SentenceTransformer
+from dask.distributed import get_worker, performance_report
+import dask_cudf
+import time
+from cluster_setup import setup_dask_cluster
+import gc
 
 # Embedding creation workflow
 def create_list_series_from_2d_ar(ar, index):
