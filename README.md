@@ -27,7 +27,7 @@ mamba create -n rapids_23_08_sentence_transformers \
 
 ```bash
 python3 embedding_creation.py \
-    --input_file_name bb-string-df.parquet \
+    --input_file_name string-df.parquet \
     --output_file_name "/raid/vjawa/bb-string-embeddings-df.parquet" \
     --rmm_pool_size "12GB" \
     --CUDA_VISIBLE_DEVICES='0,1,2,3'
