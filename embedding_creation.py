@@ -144,5 +144,5 @@ if __name__ == "__main__":
         embedding_creation_workflow(
             args.input_file_name, args.output_file_name, args.batch_size
         )
-        et = time.time()
+    et = time.time()
     print(f"Total time taken: {et-st}")
