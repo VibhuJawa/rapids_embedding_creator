@@ -19,7 +19,9 @@ from dask.distributed import get_worker, performance_report
 import dask_cudf
 import time
 from cluster_setup import setup_dask_cluster
+from rapids_tokenizer import create_embeddings as create_embeddings_rapids
 import gc
+
 
 # Embedding creation workflow
 def create_list_series_from_2d_ar(ar, index):
@@ -44,7 +46,7 @@ def create_list_series_from_2d_ar(ar, index):
     return cudf.Series(lc, index=index)
 
 
-def add_embedding(df, batch_size):
+def add_embedding(df, batch_size, use_rapids_tokenizer=False):
     """
     This function runs the entire ner workflow end2end on a single GPU
     """
@@ -55,16 +57,18 @@ def add_embedding(df, batch_size):
     else:
         print(f"Loading Model on {worker.id}", flush=True)
         model = SentenceTransformer("all-MiniLM-L6-v2", device="cuda")
-        worker.sbert_model = model
+        worker.sbert_model = model.to("cuda")
 
-    embedding = model.encode(
-        df["String"].to_arrow().to_pylist(),
-        batch_size=batch_size,
-        show_progress_bar=True,
-        device="cuda",
-        convert_to_tensor=True,
-    )
-
+    if use_rapids_tokenizer:
+        embedding = create_embeddings_rapids(df["String"], model, batch_size)
+    else:
+        embedding = model.encode(
+            df["String"].to_arrow().to_pylist(),
+            batch_size=batch_size,
+            show_progress_bar=True,
+            device="cuda",
+            convert_to_tensor=True,
+        )
     embedding = cp.asarray(embedding)
     df["embeddings"] = create_list_series_from_2d_ar(embedding, df.index)
     gc.collect()
@@ -72,7 +76,9 @@ def add_embedding(df, batch_size):
     return df
 
 
-def embedding_creation_workflow(input_file_name, output_file_name, batch_size):
+def embedding_creation_workflow(
+    input_file_name, output_file_name, batch_size, use_rapids_tokenizer
+):
     """
     This function runs the entire embedding creation workflow end2end on multiple GPUs
         Args:
@@ -84,7 +90,12 @@ def embedding_creation_workflow(input_file_name, output_file_name, batch_size):
     df = df.repartition(128)
     meta_df = df._meta.copy()
     meta_df["embeddings"] = [1] * len(meta_df)
-    df = df.map_partitions(add_embedding, batch_size=batch_size, meta=meta_df)
+    df = df.map_partitions(
+        add_embedding,
+        batch_size=batch_size,
+        use_rapids_tokenizer=use_rapids_tokenizer,
+        meta=meta_df,
+    )
     df.to_parquet(output_file_name, write_index=False)
 
 
@@ -112,7 +123,11 @@ def parse_args():
         help="The batch size to be used for the embedding creation.",
         default=1024 * 2,
     )
-
+    parser.add_argument(
+        "--use_rapids_tokenizer",
+        action="store_true",
+        help="Whether to use rapids tokenizer or not.",
+    )
     parser.add_argument(
         "--CUDA_VISIBLE_DEVICES", type=str, help="The GPUs to be used by the cluster."
     )
@@ -138,11 +153,17 @@ if __name__ == "__main__":
     if args.create_dask_profile:
         with performance_report(filename="dask-embedding-creation.html"):
             embedding_creation_workflow(
-                args.input_file_name, args.output_file_name, args.batch_size
+                args.input_file_name,
+                args.output_file_name,
+                args.batch_size,
+                args.use_rapids_tokenizer,
             )
     else:
         embedding_creation_workflow(
-            args.input_file_name, args.output_file_name, args.batch_size
+            args.input_file_name,
+            args.output_file_name,
+            args.batch_size,
+            args.use_rapids_tokenizer,
         )
     et = time.time()
     print(f"Total time taken: {et-st}")
