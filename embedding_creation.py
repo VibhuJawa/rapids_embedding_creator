@@ -5,6 +5,20 @@ from sentence_transformers import SentenceTransformer
 from dask.distributed import get_worker, performance_report
 import dask_cudf
 import time
+
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from cluster_setup import setup_dask_cluster
 import gc
 
@@ -56,6 +70,7 @@ def add_embedding(df, batch_size):
     embedding = cp.asarray(embedding)
     df["embeddings"] = create_list_series_from_2d_ar(embedding, df.index)
     gc.collect()
+
     return df
 
 
